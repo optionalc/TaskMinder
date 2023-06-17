@@ -6,7 +6,9 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.crossstore.ChangeSetPersister.NotFoundException;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -24,11 +26,14 @@ import rs.lukamatovic.TaskMinder.model.Role;
 import rs.lukamatovic.TaskMinder.model.User;
 import rs.lukamatovic.TaskMinder.payload.request.LoginRequest;
 import rs.lukamatovic.TaskMinder.payload.request.SignupRequest;
+import rs.lukamatovic.TaskMinder.payload.request.UpdateEmailRequest;
+import rs.lukamatovic.TaskMinder.payload.request.UpdatePasswordRequest;
 import rs.lukamatovic.TaskMinder.payload.response.JwtResponse;
 import rs.lukamatovic.TaskMinder.payload.response.MessageResponse;
 import rs.lukamatovic.TaskMinder.repository.RoleRepository;
 import rs.lukamatovic.TaskMinder.repository.UserRepository;
 import rs.lukamatovic.TaskMinder.security.jwt.JwtUtils;
+import rs.lukamatovic.TaskMinder.security.service.UserAuthService;
 import rs.lukamatovic.TaskMinder.security.service.UserDetailsImpl;
 
 @CrossOrigin(origins = "*", maxAge = 3600)
@@ -37,6 +42,9 @@ import rs.lukamatovic.TaskMinder.security.service.UserDetailsImpl;
 public class AuthController {
 	@Autowired
 	AuthenticationManager authenticationManager;
+
+	@Autowired
+	UserAuthService userAuthService;
 
 	@Autowired
 	UserRepository userRepository;
@@ -100,5 +108,34 @@ public class AuthController {
 		userRepository.save(user);
 
 		return ResponseEntity.ok(new MessageResponse("User registered successfully!"));
+	}
+
+	@PostMapping("/updateEmail")
+	@PreAuthorize("hasRole('USER')")
+	public ResponseEntity<?> updateEmail(@RequestBody UpdateEmailRequest updateEmailRequest) throws NotFoundException {
+		Authentication authentication = userAuthService.authenticateUser(updateEmailRequest.getUsername(),
+				updateEmailRequest.getPassword());
+
+		if (!userAuthService.validateEmailChange(authentication, updateEmailRequest.getUserId(),
+				updateEmailRequest.getEmail())) {
+			return ResponseEntity.badRequest().body(
+					new MessageResponse("You can change email only if you are logged in and only for your account!"));
+		}
+		return ResponseEntity.ok(new MessageResponse("Email updated successfully!"));
+	}
+
+	@PostMapping("/updatePassword")
+	@PreAuthorize("hasRole('USER')")
+	public ResponseEntity<?> updatePassword(@RequestBody UpdatePasswordRequest updatePasswordRequest)
+			throws NotFoundException {
+		Authentication authentication = userAuthService.authenticateUser(updatePasswordRequest.getUsername(),
+				updatePasswordRequest.getPassword());
+
+		if (!userAuthService.validatePasswordChange(authentication, updatePasswordRequest.getId(),
+				updatePasswordRequest.getNewPassword())) {
+			return ResponseEntity.badRequest().body(new MessageResponse(
+					"You can change password here only if you are logged in and only for your account!"));
+		}
+		return ResponseEntity.ok(new MessageResponse("Password updated successfully!"));
 	}
 }
