@@ -25,6 +25,7 @@ import rs.lukamatovic.TaskMinder.model.ERole;
 import rs.lukamatovic.TaskMinder.model.Role;
 import rs.lukamatovic.TaskMinder.model.User;
 import rs.lukamatovic.TaskMinder.payload.request.LoginRequest;
+import rs.lukamatovic.TaskMinder.payload.request.ResetPasswordRequest;
 import rs.lukamatovic.TaskMinder.payload.request.SignupRequest;
 import rs.lukamatovic.TaskMinder.payload.request.UpdateEmailRequest;
 import rs.lukamatovic.TaskMinder.payload.request.UpdatePasswordRequest;
@@ -35,6 +36,8 @@ import rs.lukamatovic.TaskMinder.repository.UserRepository;
 import rs.lukamatovic.TaskMinder.security.jwt.JwtUtils;
 import rs.lukamatovic.TaskMinder.security.service.UserAuthService;
 import rs.lukamatovic.TaskMinder.security.service.UserDetailsImpl;
+import rs.lukamatovic.TaskMinder.service.EmailService;
+import rs.lukamatovic.TaskMinder.service.GenerateRandomPassService;
 
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
@@ -57,6 +60,12 @@ public class AuthController {
 
 	@Autowired
 	JwtUtils jwtUtils;
+
+	@Autowired
+	EmailService emailService;
+
+	@Autowired
+	GenerateRandomPassService grps;
 
 	@PostMapping("/signin")
 	public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
@@ -137,5 +146,22 @@ public class AuthController {
 					"You can change password here only if you are logged in and only for your account!"));
 		}
 		return ResponseEntity.ok(new MessageResponse("Password updated successfully!"));
+	}
+
+	@PostMapping("/resetPassword")
+	public ResponseEntity<?> resetPassword(@RequestBody ResetPasswordRequest resetPasswordRequest)
+			throws NotFoundException {
+
+		if (!userRepository.existsByEmail(resetPasswordRequest.getEmail())) {
+			return ResponseEntity.badRequest().body(new MessageResponse("User with email does not exis!"));
+		}
+
+		String generatedPassword = grps.generatePassword();
+		String pass = encoder.encode(generatedPassword);
+		emailService.sendEmail(resetPasswordRequest.getEmail(), generatedPassword);
+		User u = userRepository.findByEmail(resetPasswordRequest.getEmail()).orElseThrow(NotFoundException::new);
+		u.setPassword(pass);
+		userRepository.save(u);
+		return ResponseEntity.ok(new MessageResponse("Email with temproary password sent successfully!"));
 	}
 }
