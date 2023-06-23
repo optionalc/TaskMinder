@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import rs.lukamatovic.TaskMinder.payload.request.CreateTaskRequest;
+import rs.lukamatovic.TaskMinder.payload.request.DeleteTaskRequest;
 import rs.lukamatovic.TaskMinder.payload.request.UpdateTaskRequest;
 import rs.lukamatovic.TaskMinder.payload.response.MessageResponse;
 import rs.lukamatovic.TaskMinder.repository.TaskRepository;
@@ -68,6 +69,26 @@ public class TaskController {
 		if (errCode == 3) {
 			return ResponseEntity.badRequest().body(new MessageResponse("That task is connected with another user!"));
 		}
-		return ResponseEntity.ok(new MessageResponse("Task updated successfully"));
+		return ResponseEntity.ok(new MessageResponse("Task updated successfully!"));
+	}
+
+	@PostMapping("/delete")
+	@PreAuthorize("hasRole('USER')")
+	public ResponseEntity<?> deleteTask(@RequestBody DeleteTaskRequest deleteTaskRequest) throws NotFoundException {
+		int errCode = taskService.deleteTask(deleteTaskRequest);
+
+		if (errCode == 1) {
+			return ResponseEntity.badRequest().body(new MessageResponse("You can delete task that belongs to you!"));
+		}
+
+		if (errCode == 2) {
+			return ResponseEntity.badRequest().body(new MessageResponse("That task does not exist!"));
+		}
+
+		if (errCode == 3) {
+			return ResponseEntity.badRequest().body(new MessageResponse("That task does not belong to you!"));
+		}
+
+		return ResponseEntity.ok(new MessageResponse("Task deleted successfully!"));
 	}
 }
